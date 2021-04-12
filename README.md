@@ -27,6 +27,8 @@ Tokens can be generated using the [twitch token generator tool](https://twitchto
 
 ## Installation
 
+First clone the repo, then:
+
 ```
-cargo install
+cargo install --path .
 ```
