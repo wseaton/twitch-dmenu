@@ -1,4 +1,7 @@
-use std::io::Error;
+use std::io::{Error, ErrorKind};
+use std::io::stdout;
+use std::io::Write;
+use std::process;
 
 use twitch_oauth2::client::surf_http_client;
 use twitch_oauth2::{AccessToken, RefreshToken, UserToken};
@@ -37,7 +40,6 @@ async fn get_token() -> Result<UserToken, Error>{
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
     
     let token = get_token().await.unwrap();
-
     let client_helix = HelixClient::with_client(surf::Client::new());
 
     let user_req = GetUsersRequest::builder().build();
@@ -65,14 +67,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>
 
     let results: Vec<Stream> = client_helix.req_get(req, &token).await?.data;
 
+    let mut stdout = stdout();
+
     for stream in results {
-        println!(
-            "{:width$}|{viewers}|{title}",
-            stream.user_name,
+        let output_string =  format!(
+            "{:width$}|{viewers}| {title}",
+            stream.user_login,
             viewers = stream.viewer_count,
             title = stream.title,
             width = 16
         );
+
+        if let Err(e) = writeln!(stdout, "{}", &output_string) {
+            if e.kind() != ErrorKind::BrokenPipe {
+                eprintln!("{}", e);
+                process::exit(1);
+            }
+        }
+       
     }
 
     Ok(())
