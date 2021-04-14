@@ -2,6 +2,7 @@ use std::io::{Error, ErrorKind};
 use std::io::stdout;
 use std::io::Write;
 use std::process;
+use std::fs;
 
 use twitch_oauth2::client::surf_http_client;
 use twitch_oauth2::{AccessToken, RefreshToken, UserToken};
@@ -14,20 +15,35 @@ use twitch_api2::helix::users::{GetUsersRequest, UsersFollow};
 
 const FIRST: usize = 100;
 
-async fn get_token() -> Result<UserToken, Error>{
-    // load from dotenv file
-    dotenv::dotenv().ok();
+use configparser::ini::Ini;
 
-    let _client_id = twitch_oauth2::ClientId::new(std::env::var("TWITCH_CLIENT_ID").unwrap());
+
+async fn get_token() -> Result<UserToken, Error>{
+    let mut config = Ini::new();
+    
+    let mut access_token = std::env::var("TWITCH_ACCESS_TOKEN").unwrap_or("".to_string());
+    let mut refresh_token = std::env::var("TWITCH_REFRESH_TOKEN").unwrap_or("".to_string());
+    let mut client_id = std::env::var("TWITCH_CLIENT_ID").unwrap_or("".to_string());
+
+    let conf_path = shellexpand::tilde("~/.config/twitch_dmenu/conf");
+
+    if (access_token == "") | (refresh_token == "") {
+        match config.load(&conf_path) {
+            Ok(c) => {
+                access_token = config.get("twitch-dmenu", "access_token").expect("");
+                refresh_token = config.get("twitch-dmenu", "refresh_token").expect("");
+                client_id = config.get("twitch-dmenu", "client_id").unwrap_or("".to_string());
+            },
+            Err(c) => panic!("Problem loading config.")
+        };
+    };
+
+    // let _client_id = twitch_oauth2::ClientId::new(client_id);
 
     let token = UserToken::from_existing(
         surf_http_client,
-        AccessToken::new(
-            std::env::var("TWITCH_ACCESS_TOKEN").expect("TWITCH_ACCESS_TOKEN not defined."),
-        ),
-        RefreshToken::new(
-            std::env::var("TWITCH_REFRESH_TOKEN").expect("TWITCH_REFRESH_TOKEN not defined."),
-        ),
+        AccessToken::new(access_token),
+        RefreshToken::new(refresh_token),
         None, // Client Secret
     )
     .await
