@@ -1,8 +1,7 @@
-use std::io::{Error, ErrorKind};
 use std::io::stdout;
 use std::io::Write;
+use std::io::{Error, ErrorKind};
 use std::process;
-use std::fs;
 
 use twitch_oauth2::client::surf_http_client;
 use twitch_oauth2::{AccessToken, RefreshToken, UserToken};
@@ -17,24 +16,25 @@ const FIRST: usize = 100;
 
 use configparser::ini::Ini;
 
-
-async fn get_token() -> Result<UserToken, Error>{
+async fn get_token() -> Result<UserToken, Error> {
     let mut config = Ini::new();
-    
+
     let mut access_token = std::env::var("TWITCH_ACCESS_TOKEN").unwrap_or("".to_string());
     let mut refresh_token = std::env::var("TWITCH_REFRESH_TOKEN").unwrap_or("".to_string());
-    let mut client_id = std::env::var("TWITCH_CLIENT_ID").unwrap_or("".to_string());
+    let mut _client_id = std::env::var("TWITCH_CLIENT_ID").unwrap_or("".to_string());
 
     let conf_path = shellexpand::tilde("~/.config/twitch_dmenu/conf");
 
     if (access_token == "") | (refresh_token == "") {
         match config.load(&conf_path) {
-            Ok(c) => {
+            Ok(_c) => {
                 access_token = config.get("twitch-dmenu", "access_token").expect("");
                 refresh_token = config.get("twitch-dmenu", "refresh_token").expect("");
-                client_id = config.get("twitch-dmenu", "client_id").unwrap_or("".to_string());
-            },
-            Err(c) => panic!("Problem loading config.")
+                _client_id = config
+                    .get("twitch-dmenu", "client_id")
+                    .unwrap_or("".to_string());
+            }
+            Err(c) => panic!("Problem loading config and env vars not set: \n{}", c),
         };
     };
 
@@ -54,14 +54,12 @@ async fn get_token() -> Result<UserToken, Error>{
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
-    
     let token = get_token().await.unwrap();
     let client_helix = HelixClient::with_client(surf::Client::new());
 
     let user_req = GetUsersRequest::builder().build();
     let user = client_helix.req_get(user_req, &token).await.unwrap();
     let self_user_id: String = user.first().unwrap().id;
-
 
     let req = GetUsersFollowsRequest::builder()
         .first(Some(FIRST))
@@ -76,9 +74,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>
         .iter()
         .for_each(|f| followed_accounts.push(f.to_id.clone()));
 
+    let mut slice_len = FIRST;
+
+    if followed_accounts.len() < FIRST {
+        slice_len = followed_accounts.len()
+    }
+
     let req = GetStreamsRequest::builder()
-        .user_id(followed_accounts[1..FIRST].to_vec())
-        .first(FIRST)
+        .user_id(followed_accounts[1..slice_len].to_vec())
+        .first(slice_len)
         .build();
 
     let results: Vec<Stream> = client_helix.req_get(req, &token).await?.data;
@@ -86,7 +90,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>
     let mut stdout = stdout();
 
     for stream in results {
-        let output_string =  format!(
+        let output_string = format!(
             "{:width$}|{viewers}| {title}",
             stream.user_login,
             viewers = stream.viewer_count,
@@ -100,7 +104,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>
                 process::exit(1);
             }
         }
-       
     }
 
     Ok(())
