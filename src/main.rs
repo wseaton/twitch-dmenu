@@ -26,7 +26,7 @@ async fn get_token() -> Result<UserToken, Error> {
     let conf_path = shellexpand::tilde("~/.config/twitch_dmenu/conf");
 
     if (access_token == "") | (refresh_token == "") {
-        match config.load(&conf_path) {
+        match config.load(&*conf_path) {
             Ok(_c) => {
                 access_token = config.get("twitch-dmenu", "access_token").expect("");
                 refresh_token = config.get("twitch-dmenu", "refresh_token").expect("");
@@ -67,6 +67,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>
         .build();
 
     let response = client_helix.req_get(req, &token).await.unwrap();
+
+    // println!("{:?}", response.pagination);
+
     let followers: Vec<UsersFollow> = response.data.into();
 
     let mut followed_accounts = Vec::new();
