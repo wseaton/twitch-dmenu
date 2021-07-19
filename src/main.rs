@@ -1,3 +1,20 @@
+#!/usr/bin/env -S cargo eval --
+//! This is a regular crate doc comment, but it also contains a partial
+//! Cargo manifest.  Note the use of a *fenced* code block, and the
+//! `cargo` "language".
+//!
+//! ```cargo
+//! [dependencies]
+//! twitch_api2 = {version = "0.5.0", features=["all"]}
+//! twitch_oauth2 = { version = "0.5.0", features=["all"]}
+//! reqwest = "*"
+//! tokio = { version = "1.4.0", features = ["rt-multi-thread", "macros"] }
+//! dotenv = "0.15.0"
+//! surf = "*"
+//! serde_json = "*"
+//! configparser = "2.0.1"
+//! shellexpand = "2.1"
+//! ```
 use std::io::stdout;
 use std::io::Write;
 use std::io::{Error, ErrorKind};
@@ -9,8 +26,9 @@ use twitch_oauth2::{AccessToken, RefreshToken, UserToken};
 use twitch_api2::helix::streams::Stream;
 use twitch_api2::{helix::streams::GetStreamsRequest, HelixClient};
 
-use twitch_api2::helix::users::GetUsersFollowsRequest;
-use twitch_api2::helix::users::{GetUsersRequest, UsersFollow};
+
+use twitch_api2::helix::users::{GetUsersRequest, GetUsersFollowsRequest};
+use twitch_api2::helix::users::get_users_follows::FollowRelationship;
 
 const FIRST: usize = 100;
 
@@ -68,9 +86,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>
 
     let response = client_helix.req_get(req, &token).await.unwrap();
 
-    // println!("{:?}", response.pagination);
-
-    let followers: Vec<UsersFollow> = response.data.into();
+    let followers: Vec<FollowRelationship> = response.data.follow_relationships;
 
     let mut followed_accounts = Vec::new();
     followers
@@ -85,7 +101,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>
 
     let req = GetStreamsRequest::builder()
         .user_id(followed_accounts[1..slice_len].to_vec())
-        .first(slice_len)
+        .first(Some(slice_len))
         .build();
 
     let results: Vec<Stream> = client_helix.req_get(req, &token).await?.data;
