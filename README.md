@@ -43,3 +43,9 @@ First clone the repo, then:
 ```sh
 cargo install --path .
 ```
+
+Or alternatively you can just `cargo install` from source directly:
+
+```sh
+cargo install --git https://github.com/wseaton/twitch-dmenu.git  
+```
