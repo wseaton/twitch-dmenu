@@ -8,12 +8,12 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-twitch_api2 = {repo = "https://github.com/Emilgardis/twitch_api2/tree/v0.6.0-rc.1", features=["all"]}
-twitch_oauth2 = { repo = "https://github.com/Emilgardis/twitch_api2/tree/v0.6.0-rc.1", features=["all"]}
-reqwest = "*"
-tokio = { version = "1.4.0", features = ["rt-multi-thread", "macros"] }
+twitch_api2 = {git = "https://github.com/Emilgardis/twitch_api2", tag="v0.6.0-rc.1", features=["all"]}
+twitch_oauth2 = { git = "https://github.com/Emilgardis/twitch_api2", tag="v0.6.0-rc.1", path="twitch_oauth2", features=["all"]}
 dotenv = "0.15.0"
+tokio = { version = "1.4.0", features = ["rt-multi-thread", "macros"] }
 surf = "*"
 serde_json = "*"
 configparser = "2.0.1"
 shellexpand = "2.1"
+thiserror = "1.0.26"

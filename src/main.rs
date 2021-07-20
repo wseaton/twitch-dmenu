@@ -1,34 +1,18 @@
-#!/usr/bin/env -S cargo eval --
-//! This is a regular crate doc comment, but it also contains a partial
-//! Cargo manifest.  Note the use of a *fenced* code block, and the
-//! `cargo` "language".
-//!
-//! ```cargo
-//! [dependencies]
-//! twitch_api2 = {version = "0.5.0", features=["all"]}
-//! twitch_oauth2 = { version = "0.5.0", features=["all"]}
-//! reqwest = "*"
-//! tokio = { version = "1.4.0", features = ["rt-multi-thread", "macros"] }
-//! dotenv = "0.15.0"
-//! surf = "*"
-//! serde_json = "*"
-//! configparser = "2.0.1"
-//! shellexpand = "2.1"
-//! ```
 use std::io::stdout;
 use std::io::Write;
 use std::io::{Error, ErrorKind};
 use std::process;
 
-use twitch_oauth2::client::surf_http_client;
+extern crate twitch_api2;
+extern crate twitch_oauth2;
+
 use twitch_oauth2::{AccessToken, RefreshToken, UserToken};
 
 use twitch_api2::helix::streams::Stream;
 use twitch_api2::{helix::streams::GetStreamsRequest, HelixClient};
 
-
-use twitch_api2::helix::users::{GetUsersRequest, GetUsersFollowsRequest};
 use twitch_api2::helix::users::get_users_follows::FollowRelationship;
+use twitch_api2::helix::users::{GetUsersFollowsRequest, GetUsersRequest};
 
 const FIRST: usize = 100;
 
@@ -59,7 +43,7 @@ async fn get_token() -> Result<UserToken, Error> {
     // let _client_id = twitch_oauth2::ClientId::new(client_id);
 
     let token = UserToken::from_existing(
-        surf_http_client,
+        twitch_oauth2::client::surf_http_client,
         AccessToken::new(access_token),
         RefreshToken::new(refresh_token),
         None, // Client Secret
@@ -77,11 +61,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>
 
     let user_req = GetUsersRequest::builder().build();
     let user = client_helix.req_get(user_req, &token).await.unwrap();
-    let self_user_id: String = user.first().unwrap().id;
-
+    let self_user_id = &user.data.first().unwrap().id;
     let req = GetUsersFollowsRequest::builder()
         .first(Some(FIRST))
-        .from_id(self_user_id)
+        .from_id(self_user_id.to_owned())
         .build();
 
     let response = client_helix.req_get(req, &token).await.unwrap();
