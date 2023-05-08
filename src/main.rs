@@ -3,16 +3,15 @@ use std::io::Write;
 use std::io::{Error, ErrorKind};
 use std::process;
 
-extern crate twitch_api2;
-extern crate twitch_oauth2;
+use twitch_api::helix::channels::FollowedBroadcaster;
+use twitch_oauth2::{AccessToken, UserToken};
 
-use twitch_oauth2::{AccessToken, RefreshToken, UserToken};
+use twitch_api::helix::streams::Stream;
 
-use twitch_api2::helix::streams::Stream;
-use twitch_api2::{helix::streams::GetStreamsRequest, HelixClient};
+use twitch_api::{helix::streams::GetStreamsRequest, HelixClient};
 
-use twitch_api2::helix::users::get_users_follows::FollowRelationship;
-use twitch_api2::helix::users::{GetUsersFollowsRequest, GetUsersRequest};
+use twitch_api::helix::channels::GetFollowedChannels;
+use twitch_api::helix::users::GetUsersRequest;
 
 const FIRST: usize = 100;
 
@@ -22,16 +21,16 @@ async fn get_token() -> Result<UserToken, Error> {
     let mut config = Ini::new();
 
     let mut access_token = std::env::var("TWITCH_ACCESS_TOKEN").unwrap_or("".to_string());
-    let mut refresh_token = std::env::var("TWITCH_REFRESH_TOKEN").unwrap_or("".to_string());
+    let mut _refresh_token = std::env::var("TWITCH_REFRESH_TOKEN").unwrap_or("".to_string());
     let mut _client_id = std::env::var("TWITCH_CLIENT_ID").unwrap_or("".to_string());
 
     let conf_path = shellexpand::tilde("~/.config/twitch_dmenu/conf");
 
-    if (access_token == "") | (refresh_token == "") {
+    if access_token.is_empty() | _refresh_token.is_empty() {
         match config.load(&*conf_path) {
             Ok(_c) => {
                 access_token = config.get("twitch-dmenu", "access_token").expect("");
-                refresh_token = config.get("twitch-dmenu", "refresh_token").expect("");
+                _refresh_token = config.get("twitch-dmenu", "refresh_token").expect("");
                 _client_id = config
                     .get("twitch-dmenu", "client_id")
                     .unwrap_or("".to_string());
@@ -40,12 +39,11 @@ async fn get_token() -> Result<UserToken, Error> {
         };
     };
 
-    // let _client_id = twitch_oauth2::ClientId::new(client_id);
-
+    let client: HelixClient<reqwest::Client> = HelixClient::default();
     let token = UserToken::from_existing(
-        twitch_oauth2::client::surf_http_client,
+        &client,
         AccessToken::new(access_token),
-        RefreshToken::new(refresh_token),
+        None,
         None, // Client Secret
     )
     .await
@@ -57,24 +55,25 @@ async fn get_token() -> Result<UserToken, Error> {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
     let token = get_token().await.unwrap();
-    let client_helix = HelixClient::with_client(surf::Client::new());
+    let client_helix: HelixClient<reqwest::Client> = HelixClient::default();
 
     let user_req = GetUsersRequest::builder().build();
     let user = client_helix.req_get(user_req, &token).await.unwrap();
+
     let self_user_id = &user.data.first().unwrap().id;
-    let req = GetUsersFollowsRequest::builder()
+    let req = GetFollowedChannels::builder()
         .first(Some(FIRST))
-        .from_id(self_user_id.to_owned())
+        .user_id(self_user_id.to_owned())
         .build();
 
     let response = client_helix.req_get(req, &token).await.unwrap();
 
-    let followers: Vec<FollowRelationship> = response.data.follow_relationships;
+    let followers: Vec<FollowedBroadcaster> = response.data;
 
     let mut followed_accounts = Vec::new();
     followers
         .iter()
-        .for_each(|f| followed_accounts.push(f.to_id.clone()));
+        .for_each(|f| followed_accounts.push(f.broadcaster_id.as_ref()));
 
     let mut slice_len = FIRST;
 
